@@ -419,6 +419,7 @@ main {
     border: 1px solid var(--green-700);
 }
 
+.badge-pending,
 .badge-claimed {
     background-color: var(--amber-50);
     color: var(--amber-600);
@@ -426,6 +427,12 @@ main {
 }
 
 .badge-completed {
+    background-color: var(--grey-200);
+    color: var(--grey-700);
+    border: 1px solid var(--grey-500);
+}
+
+.badge-cancelled {
     background-color: var(--grey-200);
     color: var(--grey-700);
     border: 1px solid var(--grey-500);

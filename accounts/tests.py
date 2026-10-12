@@ -252,6 +252,26 @@ class AccountsModelAndAuthTests(TestCase):
         reloaded_rec = Recipient.objects.get(pk=rec.pk)
         self.assertTrue(reloaded_rec.is_verified)
 
+    def test_profile_update_duplicate_email_rejected(self):
+        """Test that updating user profile cannot use an already registered email."""
+        user1 = User.objects.create_user(username='u1', email='first@test.com', password='Password123')
+        user2 = User.objects.create_user(username='u2', email='second@test.com', password='Password123')
+        self.client.force_login(user2)
+
+        response = self.client.post(reverse('accounts:profile'), {
+            'first_name': 'New',
+            'last_name': 'Name',
+            'email': 'first@test.com',  # Already taken by user1
+            'phone': '123456',
+            'address': 'Test Rd',
+            'area': 'Test Area',
+            'city': 'Dhaka',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response.context['form'], 'email', "An account with this email already exists.")
+        user2.refresh_from_db()
+        self.assertEqual(user2.email, 'second@test.com')
+
 
 class DatabaseConfigTests(TestCase):
     def test_local_sqlite_settings(self):

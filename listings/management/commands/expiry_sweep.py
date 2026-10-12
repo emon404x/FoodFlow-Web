@@ -90,11 +90,13 @@ class Command(BaseCommand):
                     claim.status = Claim.STATUS_EXPIRED
                     claim.save(update_fields=['status'])
 
-                    # If listing was marked claimed but still unexpired, restore to available
+                    # If listing was marked claimed but still unexpired, restore to available if quantity remains
                     listing = claim.listing
                     if listing.status == FoodListing.STATUS_CLAIMED and listing.expires_at > now:
-                        listing.status = FoodListing.STATUS_AVAILABLE
-                        listing.save(update_fields=['status', 'updated_at'])
+                        from decimal import Decimal
+                        if listing.quantity_available > Decimal('0.00'):
+                            listing.status = FoodListing.STATUS_AVAILABLE
+                            listing.save(update_fields=['status', 'updated_at'])
 
                     expired_claims_count += 1
             except Exception as e:

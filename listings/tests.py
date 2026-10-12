@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import timedelta
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from locations.models import Location
@@ -124,3 +125,36 @@ class ListingsExpiryAndSafetyTests(TestCase):
         listing.refresh_from_db()
         self.assertTrue(listing.safety_check.is_safe)
         self.assertEqual(listing.status, FoodListing.STATUS_AVAILABLE)
+
+    def test_cannot_delete_listing_with_completed_claims(self):
+        """Test that a listing with completed claims cannot be deleted by donor."""
+        from accounts.models import Recipient
+        from claims.models import Claim
+
+        rec_u = User.objects.create_user(username="rec_del", email="recdel@test.com", password="pwd", role="recipient")
+        rec = Recipient.objects.create(user=rec_u, recipient_type="ngo", location=self.location, is_verified=True)
+
+        listing = FoodListing.objects.create(
+            donor=self.donor,
+            location=self.location,
+            food_name="Catering Trays",
+            quantity=Decimal("10.00"),
+            unit="trays",
+            expires_at=timezone.now() + timedelta(hours=4),
+            status=FoodListing.STATUS_AVAILABLE
+        )
+        Claim.objects.create(
+            listing=listing,
+            recipient=rec,
+            claimed_quantity=Decimal("5.00"),
+            pickup_deadline=timezone.now() + timedelta(hours=1),
+            pickup_code="AA11BB22",
+            status=Claim.STATUS_COMPLETED
+        )
+
+        self.client.force_login(self.donor_user)
+        response = self.client.post(reverse('listings:donor_listing_delete', kwargs={'pk': listing.pk}), follow=True)
+        self.assertEqual(response.status_code, 200)
+        # Listing should still exist
+        self.assertTrue(FoodListing.objects.filter(pk=listing.pk).exists())
+

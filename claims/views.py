@@ -18,14 +18,19 @@ def claim_create_view(request, listing_id):
     Handles claiming an available food listing by a verified recipient.
     Delegates validation and atomic race condition prevention to ClaimService.
     """
+    listing = FoodListing.objects.filter(pk=listing_id).first()
+    if not listing:
+        messages.error(request, "The requested food listing does not exist.")
+        return redirect('listings:browse_food')
+
     if not request.user.is_recipient:
         messages.error(request, "Only registered recipients can claim food donations.")
-        return redirect('listings:food_detail', pk=listing_id)
+        return redirect('listings:food_detail', pk=listing.pk)
 
     recipient = getattr(request.user, 'recipient_profile', None)
     if not recipient or not recipient.is_verified:
         messages.error(request, "Your recipient account is not verified yet. Verification by an administrator is required before you can claim food.")
-        return redirect('listings:food_detail', pk=listing_id)
+        return redirect('listings:food_detail', pk=listing.pk)
 
     try:
         qty_str = request.POST.get('claimed_quantity', '').strip()

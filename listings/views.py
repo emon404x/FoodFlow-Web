@@ -221,9 +221,9 @@ def donor_listing_delete_view(request, pk):
         messages.error(request, "Unauthorized: You cannot delete this listing.")
         return redirect('listings:donor_listings')
 
-    # Ensure no pending claims prevent safe deletion
-    if listing.claims.filter(status=Claim.STATUS_PENDING).exists():
-        messages.error(request, "Cannot delete listing with active pending claims. Complete or wait for claims to conclude.")
+    # Ensure no pending or completed claims prevent safe deletion and audit history
+    if listing.claims.filter(status__in=[Claim.STATUS_PENDING, Claim.STATUS_COMPLETED]).exists():
+        messages.error(request, "Cannot delete listing with active or completed claims history.")
         return redirect('listings:donor_listing_detail', pk=listing.pk)
 
     food_title = listing.food_name

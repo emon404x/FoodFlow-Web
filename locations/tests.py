@@ -38,3 +38,9 @@ class LocationMatchingServiceTests(TestCase):
         self.assertEqual(matches.count(), 6)
         # Chittagong recipient must NOT be included
         self.assertFalse(matches.filter(location__city="Chittagong").exists())
+
+    def test_matching_empty_area_falls_back_to_city(self):
+        loc_no_area = Location.objects.create(address="50 Road", area="", city="Dhaka")
+        matches = LocationMatchingService.find_matching_recipients(loc_no_area)
+        self.assertEqual(matches.count(), 6)
+

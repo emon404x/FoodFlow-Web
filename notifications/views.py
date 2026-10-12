@@ -21,7 +21,7 @@ def notification_list_view(request):
     Displays all in-app notifications for the logged-in recipient, ordered latest first.
     Marks unread notifications as read upon visit.
     """
-    if not request.user.is_recipient:
+    if not request.user.is_recipient or not hasattr(request.user, 'recipient_profile'):
         messages.info(request, "In-app notifications are currently active for recipient accounts.")
         return redirect('home')
 

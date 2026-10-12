@@ -239,6 +239,12 @@ def donor_dashboard_view(request):
         status__in=[FoodListing.STATUS_AVAILABLE, FoodListing.STATUS_CLAIMED]
     ).update(status=FoodListing.STATUS_EXPIRED)
 
+    # Lazily update pending claims whose pickup deadline has passed
+    Claim.objects.filter(
+        status=Claim.STATUS_PENDING,
+        pickup_deadline__lte=now
+    ).update(status=Claim.STATUS_EXPIRED)
+
     listings = donor.listings.all().select_related('location', 'expiry_tracker', 'safety_check')
 
     total_listings = listings.count()
@@ -283,6 +289,13 @@ def recipient_dashboard_view(request):
         messages.error(request, "Recipient profile not found. Please complete your registration.")
         return redirect('accounts:profile')
     
+    # Lazily update pending claims whose pickup deadline has passed
+    now = timezone.now()
+    Claim.objects.filter(
+        status=Claim.STATUS_PENDING,
+        pickup_deadline__lte=now
+    ).update(status=Claim.STATUS_EXPIRED)
+
     # Query visible food in recipient's city/area
     available_food = FoodListing.visible_to_recipients()
     nearby_food_count = available_food.filter(location__city__iexact=recipient.location.city).count()

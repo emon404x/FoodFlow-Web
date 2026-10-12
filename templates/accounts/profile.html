@@ -12,7 +12,9 @@
             </p>
         </div>
         <div>
-            {% if profile.is_verified %}
+            {% if user.is_superuser or user.is_staff %}
+                <span class="badge badge-available" style="font-size: 0.85rem;">Staff Administrator</span>
+            {% elif profile and profile.is_verified %}
                 <span class="badge badge-available" style="font-size: 0.85rem;">✓ Verified Account</span>
             {% else %}
                 <span class="badge badge-claimed" style="font-size: 0.85rem;">Pending Admin Verification</span>
