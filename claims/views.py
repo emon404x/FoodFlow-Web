@@ -190,9 +190,9 @@ def donor_verify_pickup_view(request):
     """
     Donor page to enter and verify the 8-character pickup code presented by the recipient.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted to food donors.")
-        return redirect('home')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     donor = request.user.donor_profile
     verified_claim = None

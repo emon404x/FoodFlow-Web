@@ -39,7 +39,7 @@ class FoodListingForm(forms.ModelForm):
         widgets = {
             'food_name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 50 Lunch Boxes (Rice & Chicken)'}),
             'description': forms.Textarea(attrs={'class': 'form-textarea', 'rows': 3, 'placeholder': 'Food condition, ingredients, allergen info, packaging details...'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.5', 'min': '0.1', 'placeholder': 'e.g. 25'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-input', 'step': '0.01', 'min': '0.01', 'placeholder': 'e.g. 25'}),
             'unit': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. meals, kg, portions, boxes'}),
             'expires_at': forms.DateTimeInput(
                 attrs={'class': 'form-input', 'type': 'datetime-local'},

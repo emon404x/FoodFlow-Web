@@ -89,11 +89,13 @@ class ExpiryService:
         If a listing has expired, updates its status to 'expired' and urgency level to 'expired'.
         """
         from listings.models import FoodListing
+        from claims.models import Claim
 
         if listing.expires_at <= timezone.now() and listing.status in [FoodListing.STATUS_AVAILABLE, FoodListing.STATUS_CLAIMED]:
             listing.status = FoodListing.STATUS_EXPIRED
             listing.save(update_fields=['status', 'updated_at'])
             cls.update_expiry_tracker(listing)
+            listing.claims.filter(status=Claim.STATUS_PENDING).update(status=Claim.STATUS_EXPIRED)
             return True
         return False
 
@@ -109,6 +111,7 @@ class SafetyService:
         """
         Evaluates listing against safety rules and creates/updates FoodSafetyCheck record.
         """
+        from decimal import Decimal
         from listings.models import FoodSafetyCheck, FoodListing
 
         text_to_check = f"{listing.food_name} {listing.description or ''}".lower()
@@ -128,7 +131,10 @@ class SafetyService:
             is_safe = True
             # If listing was previously blocked but is now safe, restore to available if unexpired
             if listing.status == FoodListing.STATUS_BLOCKED and listing.expires_at > timezone.now():
-                listing.status = FoodListing.STATUS_AVAILABLE
+                if listing.quantity_available > Decimal('0.00'):
+                    listing.status = FoodListing.STATUS_AVAILABLE
+                else:
+                    listing.status = FoodListing.STATUS_CLAIMED
                 listing.save(update_fields=['status', 'updated_at'])
 
             if not listing.donor.is_verified:

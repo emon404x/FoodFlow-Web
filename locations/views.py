@@ -9,6 +9,6 @@ def location_list_json(request):
     """
     Helper API returning existing active areas and cities for autocomplete or dropdown assistance.
     """
-    areas = list(Location.objects.values_list('area', flat=True).distinct())
-    cities = list(Location.objects.values_list('city', flat=True).distinct())
+    areas = list(Location.objects.exclude(area='').values_list('area', flat=True).distinct().order_by('area'))
+    cities = list(Location.objects.exclude(city='').values_list('city', flat=True).distinct().order_by('city'))
     return JsonResponse({'areas': areas, 'cities': cities})

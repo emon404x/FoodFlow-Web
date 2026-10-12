@@ -14,8 +14,8 @@ class ClaimForm(forms.Form):
         validators=[MinValueValidator(Decimal('0.01'))],
         widget=forms.NumberInput(attrs={
             'class': 'form-input',
-            'step': '0.5',
-            'min': '0.1',
+            'step': '0.01',
+            'min': '0.01',
             'id': 'id_claimed_quantity',
             'placeholder': 'Enter quantity to claim'
         }),

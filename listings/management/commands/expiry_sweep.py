@@ -46,6 +46,9 @@ class Command(BaseCommand):
                         tracker.alert_sent = True
                         tracker.save(update_fields=['alert_sent'])
 
+                    # Mark pending claims on this listing as expired
+                    listing.claims.filter(status=Claim.STATUS_PENDING).update(status=Claim.STATUS_EXPIRED)
+
                     expired_listings_count += 1
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f"Error processing expired listing #{listing.id}: {e}"))

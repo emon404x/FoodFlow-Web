@@ -129,11 +129,12 @@ class ClaimService:
                 claim.status = Claim.STATUS_CANCELLED
                 claim.save(update_fields=['status'])
 
-                # If listing was marked claimed, restore it to available if time has not passed
+                # If listing was marked claimed, restore it to available if time has not passed and quantity remains
                 listing = claim.listing
                 if listing.status == FoodListing.STATUS_CLAIMED and listing.expires_at > timezone.now():
-                    listing.status = FoodListing.STATUS_AVAILABLE
-                    listing.save(update_fields=['status', 'updated_at'])
+                    if listing.quantity_available > Decimal('0.00'):
+                        listing.status = FoodListing.STATUS_AVAILABLE
+                        listing.save(update_fields=['status', 'updated_at'])
 
         if is_expired:
             Claim.objects.filter(pk=claim.pk).update(status=Claim.STATUS_EXPIRED)

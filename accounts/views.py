@@ -64,17 +64,12 @@ def register_view(request):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # 1. Create Location (reusing identical address records)
-                    address = form.cleaned_data['address'].strip()
-                    area = form.cleaned_data['area'].strip()
-                    city = form.cleaned_data['city'].strip()
-                    postal_code = form.cleaned_data.get('postal_code', '').strip() or None
-
-                    location, _ = Location.objects.get_or_create(
-                        address=address,
-                        area=area,
-                        city=city,
-                        postal_code=postal_code,
+                    # 1. Create Location (reusing identical address records safely)
+                    location = Location.get_or_create_location(
+                        address=form.cleaned_data['address'],
+                        area=form.cleaned_data['area'],
+                        city=form.cleaned_data['city'],
+                        postal_code=form.cleaned_data.get('postal_code')
                     )
 
                     # 2. Create User
@@ -178,12 +173,12 @@ def profile_view(request):
             with transaction.atomic():
                 user = form.save()
 
-                # Update or reuse location
-                new_loc, _ = Location.objects.get_or_create(
-                    address=form.cleaned_data['address'].strip(),
-                    area=form.cleaned_data['area'].strip(),
-                    city=form.cleaned_data['city'].strip(),
-                    postal_code=form.cleaned_data.get('postal_code', '').strip() or None,
+                # Update or reuse location safely
+                new_loc = Location.get_or_create_location(
+                    address=form.cleaned_data['address'],
+                    area=form.cleaned_data['area'],
+                    city=form.cleaned_data['city'],
+                    postal_code=form.cleaned_data.get('postal_code')
                 )
                 if profile:
                     if user.is_donor:

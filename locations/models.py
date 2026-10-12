@@ -32,3 +32,31 @@ class Location(models.Model):
         if self.postal_code:
             parts.append(self.postal_code)
         return ", ".join(filter(None, parts))
+
+    @classmethod
+    def get_or_create_location(cls, address, area, city, postal_code=None):
+        """
+        Safely retrieves or creates a Location instance, normalizing strings
+        and preventing MultipleObjectsReturned issues with SQL NULL unique constraints.
+        """
+        clean_addr = (address or '').strip()
+        clean_area = (area or '').strip()
+        clean_city = (city or '').strip()
+        clean_postal = (postal_code or '').strip() or None
+
+        loc = cls.objects.filter(
+            address__iexact=clean_addr,
+            area__iexact=clean_area,
+            city__iexact=clean_city,
+            postal_code=clean_postal
+        ).first()
+
+        if not loc:
+            loc = cls.objects.create(
+                address=clean_addr,
+                area=clean_area,
+                city=clean_city,
+                postal_code=clean_postal
+            )
+        return loc
+

@@ -24,9 +24,9 @@ def donor_listings_list_view(request):
     """
     Displays all listings created by the logged-in donor with status filtering.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted to food donors.")
-        return redirect('accounts:recipient_dashboard')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     donor = request.user.donor_profile
     status_filter = request.GET.get('status', '').strip().lower()
@@ -43,7 +43,14 @@ def donor_listings_list_view(request):
         'location', 'expiry_tracker', 'safety_check'
     ).prefetch_related('claims')
 
-    if status_filter:
+    valid_statuses = [
+        FoodListing.STATUS_AVAILABLE,
+        FoodListing.STATUS_CLAIMED,
+        FoodListing.STATUS_COMPLETED,
+        FoodListing.STATUS_EXPIRED,
+        FoodListing.STATUS_BLOCKED,
+    ]
+    if status_filter and status_filter in valid_statuses:
         listings = listings.filter(status=status_filter)
 
     context = {
@@ -59,9 +66,9 @@ def donor_listing_create_view(request):
     Handles surplus food listing creation, location lookup, safety screening,
     expiry tracker initialization, and recipient matching alerts.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted to food donors.")
-        return redirect('accounts:recipient_dashboard')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     donor = request.user.donor_profile
 
@@ -70,12 +77,12 @@ def donor_listing_create_view(request):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # 1. Location reuse / creation
-                    location, _ = Location.objects.get_or_create(
-                        address=form.cleaned_data['address'].strip(),
-                        area=form.cleaned_data['area'].strip(),
-                        city=form.cleaned_data['city'].strip(),
-                        postal_code=form.cleaned_data.get('postal_code', '').strip() or None,
+                    # 1. Location reuse / creation safely
+                    location = Location.get_or_create_location(
+                        address=form.cleaned_data['address'],
+                        area=form.cleaned_data['area'],
+                        city=form.cleaned_data['city'],
+                        postal_code=form.cleaned_data.get('postal_code')
                     )
 
                     # 2. Save Listing
@@ -127,9 +134,9 @@ def donor_listing_detail_view(request, pk):
     """
     Detailed view for Donors to inspect their listing, safety report, and active claims.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted to food donors.")
-        return redirect('home')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     listing = get_object_or_404(
         FoodListing.objects.select_related('donor__user', 'location', 'expiry_tracker', 'safety_check'),
@@ -155,9 +162,9 @@ def donor_listing_edit_view(request, pk):
     """
     Allows donors to edit their own active food listings.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted to food donors.")
-        return redirect('home')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     listing = get_object_or_404(FoodListing, pk=pk)
 
@@ -174,11 +181,11 @@ def donor_listing_edit_view(request, pk):
         form = FoodListingForm(request.POST, instance=listing)
         if form.is_valid():
             with transaction.atomic():
-                location, _ = Location.objects.get_or_create(
-                    address=form.cleaned_data['address'].strip(),
-                    area=form.cleaned_data['area'].strip(),
-                    city=form.cleaned_data['city'].strip(),
-                    postal_code=form.cleaned_data.get('postal_code', '').strip() or None,
+                location = Location.get_or_create_location(
+                    address=form.cleaned_data['address'],
+                    area=form.cleaned_data['area'],
+                    city=form.cleaned_data['city'],
+                    postal_code=form.cleaned_data.get('postal_code')
                 )
                 listing = form.save(commit=False)
                 listing.location = location
@@ -211,9 +218,9 @@ def donor_listing_delete_view(request, pk):
     """
     Allows donors to delete their own food listing if no pending claims exist.
     """
-    if not request.user.is_donor:
+    if not request.user.is_donor or not hasattr(request.user, 'donor_profile'):
         messages.error(request, "Access restricted.")
-        return redirect('home')
+        return redirect('accounts:recipient_dashboard' if request.user.is_recipient else 'home')
 
     listing = get_object_or_404(FoodListing, pk=pk)
 
@@ -270,8 +277,8 @@ def recipient_browse_view(request):
         listings = listings.filter(expiry_tracker__urgency_level=urgency)
 
     # Distinct locations for filter dropdowns
-    available_cities = Location.objects.filter(listings__in=FoodListing.visible_to_recipients()).values_list('city', flat=True).distinct()
-    available_areas = Location.objects.filter(listings__in=FoodListing.visible_to_recipients()).values_list('area', flat=True).distinct()
+    available_cities = Location.objects.filter(listings__in=FoodListing.visible_to_recipients()).values_list('city', flat=True).distinct().order_by('city')
+    available_areas = Location.objects.filter(listings__in=FoodListing.visible_to_recipients()).values_list('area', flat=True).distinct().order_by('area')
 
     context = {
         'listings': listings,
