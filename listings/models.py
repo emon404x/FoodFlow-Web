@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 
 class FoodListing(models.Model):
@@ -92,19 +92,23 @@ class FoodListing(models.Model):
     @property
     def is_expired(self):
         """
-        Returns True if current time has surpassed expires_at.
+        Returns True if current time has surpassed expires_at or status is expired.
         """
+        if self.status == self.STATUS_EXPIRED:
+            return True
         return timezone.now() >= self.expires_at
 
     @property
     def quantity_available(self):
         """
-        Calculates available quantity by subtracting pending & completed claims.
-        Cancelled and expired claims do NOT reduce quantity.
+        Calculates available quantity by subtracting completed claims and active pending claims.
+        Expired and cancelled claims do NOT reduce quantity.
         """
         from claims.models import Claim
+        now = timezone.now()
         claimed_sum = self.claims.filter(
-            status__in=[Claim.STATUS_PENDING, Claim.STATUS_COMPLETED]
+            Q(status=Claim.STATUS_COMPLETED) |
+            Q(status=Claim.STATUS_PENDING, pickup_deadline__gt=now)
         ).aggregate(total=Sum('claimed_quantity'))['total'] or Decimal('0.00')
 
         remaining = self.quantity - claimed_sum

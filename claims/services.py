@@ -42,7 +42,13 @@ class ClaimService:
         if not recipient.is_verified:
             raise ValidationError("Only verified recipients are eligible to claim food donations.")
 
-        if quantity <= Decimal('0.00'):
+        if not isinstance(quantity, Decimal):
+            try:
+                quantity = Decimal(str(quantity))
+            except Exception:
+                raise ValidationError("Claim quantity must be a valid number.")
+
+        if not quantity.is_finite() or quantity <= Decimal('0.00'):
             raise ValidationError("Claim quantity must be greater than zero.")
 
         with transaction.atomic():
@@ -118,17 +124,24 @@ class ClaimService:
             if claim.status != Claim.STATUS_PENDING:
                 raise ValidationError(f"Cannot cancel a claim with status: {claim.get_status_display()}.")
 
-            claim.status = Claim.STATUS_CANCELLED
-            claim.save(update_fields=['status'])
+            is_expired = claim.is_expired
+            if not is_expired:
+                claim.status = Claim.STATUS_CANCELLED
+                claim.save(update_fields=['status'])
 
-            # If listing was marked claimed, restore it to available if time has not passed
-            listing = claim.listing
-            if listing.status == FoodListing.STATUS_CLAIMED and listing.expires_at > timezone.now():
-                listing.status = FoodListing.STATUS_AVAILABLE
-                listing.save(update_fields=['status', 'updated_at'])
+                # If listing was marked claimed, restore it to available if time has not passed
+                listing = claim.listing
+                if listing.status == FoodListing.STATUS_CLAIMED and listing.expires_at > timezone.now():
+                    listing.status = FoodListing.STATUS_AVAILABLE
+                    listing.save(update_fields=['status', 'updated_at'])
 
-            NotificationService.notify_claim_cancelled(claim)
-            return claim
+        if is_expired:
+            Claim.objects.filter(pk=claim.pk).update(status=Claim.STATUS_EXPIRED)
+            claim.status = Claim.STATUS_EXPIRED
+            raise ValidationError("Cannot cancel an expired claim.")
+
+        NotificationService.notify_claim_cancelled(claim)
+        return claim
 
     @classmethod
     def verify_and_complete_pickup(cls, pickup_code: str, donor_user):
@@ -161,16 +174,23 @@ class ClaimService:
             if claim.status in [Claim.STATUS_CANCELLED, Claim.STATUS_EXPIRED]:
                 raise ValidationError(f"Cannot complete pickup for a claim that is {claim.get_status_display().lower()}.")
 
-            # Mark claim completed
-            claim.status = Claim.STATUS_COMPLETED
-            claim.save(update_fields=['status'])
+            is_expired = claim.is_expired
+            if not is_expired:
+                # Mark claim completed
+                claim.status = Claim.STATUS_COMPLETED
+                claim.save(update_fields=['status'])
 
-            # If all quantity is claimed/completed and no pending items remain, complete listing
-            listing = claim.listing
-            pending_count = listing.claims.filter(status=Claim.STATUS_PENDING).count()
-            if listing.quantity_available <= Decimal('0.00') and pending_count == 0:
-                listing.status = FoodListing.STATUS_COMPLETED
-                listing.save(update_fields=['status', 'updated_at'])
+                # If all quantity is claimed/completed and no pending items remain, complete listing
+                listing = claim.listing
+                pending_count = listing.claims.filter(status=Claim.STATUS_PENDING).count()
+                if listing.quantity_available <= Decimal('0.00') and pending_count == 0:
+                    listing.status = FoodListing.STATUS_COMPLETED
+                    listing.save(update_fields=['status', 'updated_at'])
 
-            NotificationService.notify_pickup_completed(claim)
-            return claim
+        if is_expired:
+            Claim.objects.filter(pk=claim.pk).update(status=Claim.STATUS_EXPIRED)
+            claim.status = Claim.STATUS_EXPIRED
+            raise ValidationError("This claim has expired and can no longer be picked up.")
+
+        NotificationService.notify_pickup_completed(claim)
+        return claim

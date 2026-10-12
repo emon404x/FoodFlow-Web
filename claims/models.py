@@ -63,8 +63,10 @@ class Claim(models.Model):
     @property
     def is_expired(self):
         """
-        Returns True if pending claim has surpassed pickup_deadline or listing expiry.
+        Returns True if claim status is expired or if pending claim has surpassed pickup_deadline or listing expiry.
         """
+        if self.status == self.STATUS_EXPIRED:
+            return True
         return self.status == self.STATUS_PENDING and (
             timezone.now() >= self.pickup_deadline or timezone.now() >= self.listing.expires_at
         )

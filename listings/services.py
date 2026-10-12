@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
@@ -111,7 +112,10 @@ class SafetyService:
         from listings.models import FoodSafetyCheck, FoodListing
 
         text_to_check = f"{listing.food_name} {listing.description or ''}".lower()
-        has_blocked_keyword = any(keyword in text_to_check for keyword in BLOCKED_KEYWORDS)
+        has_blocked_keyword = any(
+            re.search(r'\b' + re.escape(keyword) + r'\b', text_to_check)
+            for keyword in BLOCKED_KEYWORDS
+        )
 
         if has_blocked_keyword:
             is_safe = False
@@ -120,13 +124,18 @@ class SafetyService:
             if listing.status != FoodListing.STATUS_BLOCKED:
                 listing.status = FoodListing.STATUS_BLOCKED
                 listing.save(update_fields=['status', 'updated_at'])
-        elif not listing.donor.is_verified:
-            # Unverified donor items get medium risk but remain safe for verified recipients
-            is_safe = True
-            risk_level = FoodSafetyCheck.RISK_MEDIUM
         else:
             is_safe = True
-            risk_level = FoodSafetyCheck.RISK_LOW
+            # If listing was previously blocked but is now safe, restore to available if unexpired
+            if listing.status == FoodListing.STATUS_BLOCKED and listing.expires_at > timezone.now():
+                listing.status = FoodListing.STATUS_AVAILABLE
+                listing.save(update_fields=['status', 'updated_at'])
+
+            if not listing.donor.is_verified:
+                # Unverified donor items get medium risk but remain safe for verified recipients
+                risk_level = FoodSafetyCheck.RISK_MEDIUM
+            else:
+                risk_level = FoodSafetyCheck.RISK_LOW
 
         safety_check, created = FoodSafetyCheck.objects.get_or_create(
             listing=listing,

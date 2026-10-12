@@ -3,6 +3,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from locations.models import Location
@@ -177,11 +178,6 @@ def profile_view(request):
             with transaction.atomic():
                 user = form.save()
 
-                # Update organization name if donor
-                if user.is_donor and profile:
-                    profile.organization_name = form.cleaned_data.get('organization_name', '')
-                    profile.save()
-
                 # Update or reuse location
                 new_loc, _ = Location.objects.get_or_create(
                     address=form.cleaned_data['address'].strip(),
@@ -190,6 +186,8 @@ def profile_view(request):
                     postal_code=form.cleaned_data.get('postal_code', '').strip() or None,
                 )
                 if profile:
+                    if user.is_donor:
+                        profile.organization_name = form.cleaned_data.get('organization_name', '').strip()
                     profile.location = new_loc
                     profile.save()
 
@@ -233,13 +231,24 @@ def donor_dashboard_view(request):
         messages.error(request, "Donor profile not found. Please complete your registration.")
         return redirect('accounts:profile')
 
+    now = timezone.now()
+    # Lazily update status for listings whose expiry has passed
+    FoodListing.objects.filter(
+        donor=donor,
+        expires_at__lte=now,
+        status__in=[FoodListing.STATUS_AVAILABLE, FoodListing.STATUS_CLAIMED]
+    ).update(status=FoodListing.STATUS_EXPIRED)
+
     listings = donor.listings.all().select_related('location', 'expiry_tracker', 'safety_check')
 
     total_listings = listings.count()
-    available_count = listings.filter(status=FoodListing.STATUS_AVAILABLE, expires_at__gt=timezone.now()).count()
+    available_count = listings.filter(status=FoodListing.STATUS_AVAILABLE, expires_at__gt=now).count()
     claimed_count = listings.filter(status=FoodListing.STATUS_CLAIMED).count()
     completed_count = listings.filter(status=FoodListing.STATUS_COMPLETED).count()
-    expired_count = listings.filter(status=FoodListing.STATUS_EXPIRED).count()
+    expired_count = listings.filter(
+        Q(status=FoodListing.STATUS_EXPIRED) |
+        Q(status__in=[FoodListing.STATUS_AVAILABLE, FoodListing.STATUS_CLAIMED], expires_at__lte=now)
+    ).count()
 
     recent_listings = listings[:5]
     pending_pickups = Claim.objects.filter(

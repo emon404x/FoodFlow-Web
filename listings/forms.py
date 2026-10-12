@@ -48,8 +48,8 @@ class FoodListingForm(forms.ModelForm):
 
     def clean_quantity(self):
         quantity = self.cleaned_data.get('quantity')
-        if quantity is None or quantity <= Decimal('0.00'):
-            raise forms.ValidationError("Quantity must be greater than zero.")
+        if quantity is None or not quantity.is_finite() or quantity <= Decimal('0.00'):
+            raise forms.ValidationError("Quantity must be a valid number greater than zero.")
         return quantity
 
     def clean_expires_at(self):

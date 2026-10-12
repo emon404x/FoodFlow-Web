@@ -83,3 +83,44 @@ class ListingsExpiryAndSafetyTests(TestCase):
 
         visible = FoodListing.visible_to_recipients()
         self.assertFalse(visible.filter(pk=expired_listing.pk).exists())
+
+    def test_safety_check_allows_unopened_food(self):
+        """Test that words like 'unopened' do not trigger false positive matching for 'opened'."""
+        safe_listing = FoodListing.objects.create(
+            donor=self.donor,
+            location=self.location,
+            food_name="Fresh Milk Cartons",
+            description="Sealed, unopened dairy cartons from morning delivery",
+            quantity=Decimal("12.00"),
+            unit="cartons",
+            expires_at=timezone.now() + timedelta(hours=8),
+            status=FoodListing.STATUS_AVAILABLE
+        )
+        safety_check = SafetyService.check_food_safety(safe_listing)
+        self.assertTrue(safety_check.is_safe)
+        self.assertEqual(safety_check.risk_level, FoodSafetyCheck.RISK_LOW)
+        self.assertEqual(safe_listing.status, FoodListing.STATUS_AVAILABLE)
+
+    def test_safety_check_unblocks_edited_listing(self):
+        """Test that an accidentally blocked listing is unblocked when edited to be safe."""
+        listing = FoodListing.objects.create(
+            donor=self.donor,
+            location=self.location,
+            food_name="Raw Fish Slices",
+            description="Sushi ingredients",
+            quantity=Decimal("8.00"),
+            unit="boxes",
+            expires_at=timezone.now() + timedelta(hours=6),
+            status=FoodListing.STATUS_AVAILABLE
+        )
+        SafetyService.check_food_safety(listing)
+        listing.refresh_from_db()
+        self.assertEqual(listing.status, FoodListing.STATUS_BLOCKED)
+
+        # Donor edits the food name and description to safe cooked food
+        listing.food_name = "Cooked Grilled Salmon"
+        listing.description = "Fully cooked and grilled salmon fillets"
+        SafetyService.check_food_safety(listing)
+        listing.refresh_from_db()
+        self.assertTrue(listing.safety_check.is_safe)
+        self.assertEqual(listing.status, FoodListing.STATUS_AVAILABLE)

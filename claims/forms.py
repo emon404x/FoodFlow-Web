@@ -24,14 +24,21 @@ class ClaimForm(forms.Form):
 
     def __init__(self, *args, max_available=None, unit="units", **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_available = max_available
         if max_available is not None:
-            self.fields['claimed_quantity'].widget.attrs['max'] = str(max_available)
-            self.fields['claimed_quantity'].help_text = f"Available to claim: up to {max_available} {unit}"
+            try:
+                self.max_available = Decimal(str(max_available))
+            except Exception:
+                self.max_available = None
+        else:
+            self.max_available = None
+
+        if self.max_available is not None:
+            self.fields['claimed_quantity'].widget.attrs['max'] = str(self.max_available)
+            self.fields['claimed_quantity'].help_text = f"Available to claim: up to {self.max_available} {unit}"
 
     def clean_claimed_quantity(self):
         qty = self.cleaned_data.get('claimed_quantity')
-        if qty is None or qty <= Decimal('0.00'):
+        if qty is None or not qty.is_finite() or qty <= Decimal('0.00'):
             raise forms.ValidationError("Please enter a valid quantity greater than zero.")
         if self.max_available is not None and qty > self.max_available:
             raise forms.ValidationError(f"Cannot claim more than the available quantity ({self.max_available}).")

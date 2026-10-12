@@ -29,7 +29,15 @@ def donor_listings_list_view(request):
         return redirect('accounts:recipient_dashboard')
 
     donor = request.user.donor_profile
-    status_filter = request.GET.get('status', '')
+    status_filter = request.GET.get('status', '').strip().lower()
+
+    # Lazily update status for listings whose expiry has passed
+    now = timezone.now()
+    FoodListing.objects.filter(
+        donor=donor,
+        expires_at__lte=now,
+        status__in=[FoodListing.STATUS_AVAILABLE, FoodListing.STATUS_CLAIMED]
+    ).update(status=FoodListing.STATUS_EXPIRED)
     
     listings = FoodListing.objects.filter(donor=donor).select_related(
         'location', 'expiry_tracker', 'safety_check'
@@ -190,7 +198,7 @@ def donor_listing_edit_view(request, pk):
             'area': listing.location.area,
             'city': listing.location.city,
             'postal_code': listing.location.postal_code or '',
-            'expires_at': listing.expires_at.strftime('%Y-%m-%dT%H:%M')
+            'expires_at': timezone.localtime(listing.expires_at).strftime('%Y-%m-%dT%H:%M')
         }
         form = FoodListingForm(instance=listing, initial=initial_data)
 

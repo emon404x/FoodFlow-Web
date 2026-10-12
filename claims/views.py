@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from .models import Claim
 from .forms import ClaimForm, PickupVerificationForm
 from .services import ClaimService
@@ -29,8 +30,10 @@ def claim_create_view(request, listing_id):
     try:
         qty_str = request.POST.get('claimed_quantity', '').strip()
         quantity = Decimal(qty_str)
+        if not quantity.is_finite() or quantity <= Decimal('0.00'):
+            raise ValueError()
     except Exception:
-        messages.error(request, "Please enter a valid numeric quantity.")
+        messages.error(request, "Please enter a valid positive numeric quantity.")
         return redirect('listings:food_detail', pk=listing_id)
 
     try:
@@ -42,7 +45,8 @@ def claim_create_view(request, listing_id):
         )
         return redirect('claims:claim_detail', pk=claim.pk)
     except ValidationError as e:
-        messages.error(request, f"Claim failed: {e.message}")
+        err_msg = ', '.join(e.messages) if hasattr(e, 'messages') else str(e)
+        messages.error(request, f"Claim failed: {err_msg}")
         return redirect('listings:food_detail', pk=listing_id)
     except Exception as e:
         messages.error(request, f"An unexpected error occurred while processing your claim: {e}")
@@ -62,6 +66,13 @@ def claims_list_view(request):
     lookup_code = request.GET.get('pickup_code', '').strip().upper()
     lookup_result = None
     claims = None
+
+    # Lazily update pending claims whose pickup deadline has passed
+    now = timezone.now()
+    Claim.objects.filter(
+        status=Claim.STATUS_PENDING,
+        pickup_deadline__lte=now
+    ).update(status=Claim.STATUS_EXPIRED)
 
     if lookup_code:
         lookup_result = Claim.objects.filter(pickup_code=lookup_code).select_related(
@@ -103,7 +114,8 @@ def claims_list_view(request):
             'listing', 'listing__donor__user', 'listing__location', 'recipient__user'
         ).order_by('-claimed_at')
 
-        if status_filter:
+        valid_statuses = [Claim.STATUS_PENDING, Claim.STATUS_COMPLETED, Claim.STATUS_CANCELLED, Claim.STATUS_EXPIRED]
+        if status_filter and status_filter in valid_statuses:
             claims = claims.filter(status=status_filter)
     else:
         page_title = "Food Claims & Pickup Tracking"
@@ -160,7 +172,8 @@ def claim_cancel_view(request, pk):
         claim = ClaimService.cancel_claim(claim_id=pk, user=request.user)
         messages.success(request, f"Claim #{claim.id} for '{claim.listing.food_name}' was successfully cancelled.")
     except ValidationError as e:
-        messages.error(request, f"Cancellation error: {e.message}")
+        err_msg = ', '.join(e.messages) if hasattr(e, 'messages') else str(e)
+        messages.error(request, f"Cancellation error: {err_msg}")
     except Exception as e:
         messages.error(request, f"Error cancelling claim: {e}")
 
@@ -195,7 +208,8 @@ def donor_verify_pickup_view(request):
                 )
                 form = PickupVerificationForm()
             except ValidationError as e:
-                messages.error(request, f"Verification Failed: {e.message}")
+                err_msg = ', '.join(e.messages) if hasattr(e, 'messages') else str(e)
+                messages.error(request, f"Verification Failed: {err_msg}")
     else:
         code_param = request.GET.get('code', '').strip().upper()
         if code_param:

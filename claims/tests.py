@@ -190,3 +190,67 @@ class ClaimsServiceAndWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "My Food Claims")
         self.assertContains(response, claim.pickup_code)
+
+    def test_expired_claim_cannot_be_verified_by_donor(self):
+        """Test that a claim whose pickup deadline has passed cannot be verified."""
+        claim = ClaimService.create_claim(
+            listing_id=self.listing.id,
+            recipient=self.recipient,
+            quantity=Decimal("5.00")
+        )
+        # Move pickup deadline to the past
+        claim.pickup_deadline = timezone.now() - timedelta(minutes=10)
+        claim.save(update_fields=['pickup_deadline'])
+
+        with self.assertRaises(ValidationError):
+            ClaimService.verify_and_complete_pickup(
+                pickup_code=claim.pickup_code,
+                donor_user=self.donor_user
+            )
+
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.STATUS_EXPIRED)
+
+    def test_expired_claim_cannot_be_cancelled_by_recipient(self):
+        """Test that an expired claim cannot be cancelled by the recipient."""
+        claim = ClaimService.create_claim(
+            listing_id=self.listing.id,
+            recipient=self.recipient,
+            quantity=Decimal("3.00")
+        )
+        claim.pickup_deadline = timezone.now() - timedelta(minutes=5)
+        claim.save(update_fields=['pickup_deadline'])
+
+        with self.assertRaises(ValidationError):
+            ClaimService.cancel_claim(claim_id=claim.id, user=self.recipient_user)
+
+        claim.refresh_from_db()
+        self.assertEqual(claim.status, Claim.STATUS_EXPIRED)
+
+    def test_quantity_available_excludes_expired_pending_claims(self):
+        """Test that expired pending claims do not permanently block remaining quantity."""
+        # Initial quantity is 20
+        claim = ClaimService.create_claim(
+            listing_id=self.listing.id,
+            recipient=self.recipient,
+            quantity=Decimal("15.00")
+        )
+        self.assertEqual(self.listing.quantity_available, Decimal("5.00"))
+
+        # Claim expires
+        claim.pickup_deadline = timezone.now() - timedelta(minutes=15)
+        claim.save(update_fields=['pickup_deadline'])
+
+        # Listing quantity available should immediately restore to 20
+        self.assertEqual(self.listing.quantity_available, Decimal("20.00"))
+
+    def test_create_claim_accepts_float_or_int_or_str_quantity_safely(self):
+        """Test that passing float, int or str to create_claim is handled safely without TypeError."""
+        c1 = ClaimService.create_claim(listing_id=self.listing.id, recipient=self.recipient, quantity=2)
+        self.assertEqual(c1.claimed_quantity, Decimal("2.00"))
+
+        c2 = ClaimService.create_claim(listing_id=self.listing.id, recipient=self.recipient, quantity=1.5)
+        self.assertEqual(c2.claimed_quantity, Decimal("1.50"))
+
+        c3 = ClaimService.create_claim(listing_id=self.listing.id, recipient=self.recipient, quantity="2.5")
+        self.assertEqual(c3.claimed_quantity, Decimal("2.50"))
