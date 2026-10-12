@@ -1,9 +1,11 @@
 {% load static %}
 <nav class="navbar">
     <div class="container navbar-container">
-        <a href="{% url 'home' %}" class="brand">
-            <span class="brand-icon">🌱</span>
-            <span>FoodFlow</span>
+        <a href="{% url 'home' %}" class="brand" aria-label="FoodFlow - Home">
+            <img src="{% static 'images/logo.svg' %}" alt="FoodFlow Logo" class="brand-logo-img" width="36" height="36">
+            <span class="brand-name">
+                <span class="brand-name-food">Food</span><span class="brand-name-flow">Flow</span>
+            </span>
         </a>
 
         <ul class="nav-links">

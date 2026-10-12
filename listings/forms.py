@@ -19,12 +19,13 @@ class FoodListingForm(forms.ModelForm):
     area = forms.CharField(
         max_length=100,
         required=True,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Area / Neighborhood'})
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhanmondi / Banani / Mirpur / Uttara'})
     )
     city = forms.CharField(
         max_length=100,
         required=True,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'City'})
+        initial='Dhaka',
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Dhaka'})
     )
     postal_code = forms.CharField(
         max_length=20,

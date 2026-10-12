@@ -50,12 +50,13 @@ class UserRegistrationForm(forms.ModelForm):
     area = forms.CharField(
         max_length=100,
         required=True,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhanmondi / Downtown / Brooklyn'})
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhanmondi / Banani / Mirpur / Uttara'})
     )
     city = forms.CharField(
         max_length=100,
         required=True,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhaka / New York'})
+        initial='Dhaka',
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Dhaka'})
     )
     postal_code = forms.CharField(
         max_length=20,
@@ -151,11 +152,11 @@ class ProfileUpdateForm(forms.ModelForm):
     """
     Form for updating user contact details and location.
     """
-    organization_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-input'}))
-    address = forms.CharField(max_length=255, required=True, widget=forms.TextInput(attrs={'class': 'form-input'}))
-    area = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'class': 'form-input'}))
-    city = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'class': 'form-input'}))
-    postal_code = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={'class': 'form-input'}))
+    organization_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Green Bakery'}))
+    address = forms.CharField(max_length=255, required=True, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Street address'}))
+    area = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhanmondi / Banani / Mirpur / Uttara'}))
+    city = forms.CharField(max_length=100, required=True, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Dhaka'}))
+    postal_code = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Postal code'}))
 
     class Meta:
         model = User

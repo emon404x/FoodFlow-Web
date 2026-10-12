@@ -99,19 +99,41 @@ main {
 .brand {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--green-700);
+    gap: 0.65rem;
     text-decoration: none;
+    transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
 .brand:hover {
     text-decoration: none;
+    opacity: 0.95;
+    transform: translateY(-1px);
 }
 
-.brand-icon {
-    font-size: 1.6rem;
+.brand-logo-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: block;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(30, 107, 84, 0.2);
+}
+
+.brand-name {
+    display: inline-flex;
+    align-items: baseline;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1;
+}
+
+.brand-name-food {
+    color: var(--ink);
+}
+
+.brand-name-flow {
+    color: var(--green-700);
 }
 
 .nav-links {

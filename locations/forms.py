@@ -11,10 +11,10 @@ class LocationForm(forms.ModelForm):
         model = Location
         fields = ['address', 'area', 'city', 'postal_code', 'latitude', 'longitude']
         widgets = {
-            'address': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 123 Main Street, Apt 4B'}),
-            'area': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Downtown / Banani / Gulshan'}),
-            'city': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhaka'}),
-            'postal_code': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 1213'}),
+            'address': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. House #, Road #, Street name'}),
+            'area': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Dhanmondi / Banani / Mirpur / Uttara'}),
+            'city': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Dhaka'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 1209'}),
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
         }
