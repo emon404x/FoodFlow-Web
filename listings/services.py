@@ -1,6 +1,7 @@
 import logging
 import re
 from datetime import timedelta
+from decimal import Decimal
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
